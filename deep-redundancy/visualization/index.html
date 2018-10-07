@@ -16,28 +16,24 @@
 
       // TODO: First list all the documents in the database
       // TODO: Select one of them to get the duplication analysis
-      // TODO: Add support for more parameters in solr
-      // TODO: normalization
-      // TODO: show human readable date
-      // TODO: add normal
-      const query = "The negative impacts of the El Nino induced drought, the worst in 35 years,\nwhich has caused a humanitarian crisis affecting 39 million people or 13% of\nSADC population, continues to intensify. Several factors including depleted\nfood reserves, rising food prices, lower commodity prices, slowing economic\ngrowth among other key factors, are exacerbating the situation. Staple food\nprices are rising due to the generally poor crop production over the past two\nyears. The Regional cereal deficit currently stands at close to 7.4 metric\ntonnes and is 11% below the five year average dropping from 29 million tonnes\nin 2015 to 26 million tonnes in 2016 (figures exclude Mauritius and\nSeychelles). The majority of the population is now entirely dependent on the\nmarkets for food.\n\n **Highlights**\n\n  * The negative impacts of the El Nino induced drought that has caused a";
+      // TODO: Add support for large number of query words in solr
+      // TODO: normalization of data (remove self) - need to get self from the database
+      // DONE: zoom
+      // IN PROGRESS: show human readable date
+      const query = "The negative impacts of the El Nino induced drought";
 
-      const url = 'http://128.141.118.30:8983/solr/deep/select?fl=*,score';
-      const body = {
-        query,
-        limit: 1000,
-      };
-
-      fetch(url, {
+      fetch('http://localhost:8983/solr/deep/select?fl=*,score', {
         method: 'POST',
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-        },
-        body: JSON.stringify(body),
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        body: JSON.stringify({ query, limit: 300 }),
       })
         .then(res => res.json())
         .then((json) => {
-          const data = json.response.docs.filter(datum => datum['published_date'] !== 'None')
+
+          const data = json.response.docs
+            // remove all data without published_date
+            .filter(datum => datum['published_date'] !== 'None' && datum['published_date'])
+            // transform data to our needs
             .map(datum => ({
               ...datum,
               size: 3,
@@ -45,44 +41,40 @@
               publisher: datum.publisher || 'N/A',
             }))
 
-          var margin = { top: 50, right: 300, bottom: 50, left: 50 },
-            outerWidth = 1420,
-            outerHeight = 680,
-            width = outerWidth - margin.left - margin.right,
-            height = outerHeight - margin.top - margin.bottom;
+          const margin = { top: 50, right: 300, bottom: 50, left: 50 };
+          const outerWidth = 1420;
+          const outerHeight = 680;
+          const width = outerWidth - margin.left - margin.right;
+          const height = outerHeight - margin.top - margin.bottom;
 
-          var x = d3.scale.linear()
-            .range([0, width]).nice();
+          var x = d3.scale.linear().range([0, width]).nice();
+          var y = d3.scale.linear().range([height, 0]).nice();
 
-          var y = d3.scale.linear()
-            .range([height, 0]).nice();
+          const colorCat = "publisher";
+          const rCat = 'size';
+          const xCat = "published_date";
+          const yCat = "score";
 
-          var xCat = "published_date",
-            yCat = "score",
-            colorCat = "publisher",
-            rCat = 'size';
+          let maxX = Math.max(...data.map(datum => datum[xCat]));
+          let minX = Math.min(...data.map(datum => datum[xCat]));
+          let maxY = Math.max(...data.map(datum => datum[yCat]));
+          let minY = Math.min(...data.map(datum => datum[yCat]));
 
-          const maxX = Math.max(...data.map(datum => datum[xCat]));
-          const minX = Math.min(...data.map(datum => datum[xCat]));
-
-          const maxY = Math.max(...data.map(datum => datum[yCat]));
-          const minY = Math.min(...data.map(datum => datum[yCat]));
-
-          var xMax = maxX+1,
-            xMin = minX,
-            yMax = maxY+10,
-            yMin = minY
+          let xMax = maxX+1;
+          let xMin = minX;
+          let yMax = maxY+10;
+          let yMin = minY;
 
           x.domain([xMin, xMax]);
           y.domain([yMin, yMax]);
 
-          var xAxis = d3.svg.axis()
+          const xAxis = d3.svg.axis()
             .scale(x)
             .orient("bottom")
             .tickSize(-height)
             .tickFormat(d3.format("d"));
 
-          var yAxis = d3.svg.axis()
+          const yAxis = d3.svg.axis()
             .scale(y)
             .orient("left")
             .tickSize(-width);
@@ -101,7 +93,6 @@
             .y(y)
             .scaleExtent([0, 500])
             .on("zoom", zoom);
-
 
           var svg = d3.select("#scatter")
             .append("svg")

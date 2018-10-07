@@ -32,6 +32,12 @@ curl -X POST -H 'Content-type:application/json' --data-binary '{"add-copy-field"
 
 > You can check out the solr dashboard at http://localhost:8983/solr/#/deep/query
 
+If you want to delete all the data you can use the following command:
+
+```
+curl -X POST -H 'Content-Type: application/json' 'http://localhost:8983/solr/deep/update?commit=true' -d '{ "delete": {"query":"*:*"} }'
+```
+
 4. Load data
 
 ```

@@ -2,6 +2,9 @@ import sys
 import json
 import html2text
 import csv
+import random
+
+ROW_COUNT = 10000
 
 new_rows = []
 
@@ -11,8 +14,7 @@ with open('./data/deep.csv', 'r') as f:
     data = [row for row in r]
 
     new_data = []
-    # FIXME: randomize and get N documents from there
-    for datum in data[:10000]:
+    for datum in random.sample(data, ROW_COUNT):
         new_data.append({
             'id': datum['id'],
             'text': html2text.html2text(datum['text']) if datum['text'].find('<body>') != -1 else datum['text'],
