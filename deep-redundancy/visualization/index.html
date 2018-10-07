@@ -3,6 +3,8 @@
     <meta charset="utf-8">
     <title>Visualization</title>
     <link rel="stylesheet" href="scatter.css" charset="utf-8">
+    <script src="https://d3js.org/d3.v5.min.js" charset="utf-8"></script>
+    <script src="d3-tip/d3-tip.js" charset="utf-8"></script>
   </head>
   <script type="text/javascript">
 
@@ -13,8 +15,6 @@
     <div id="published-date"></div>
     <div id="scatter"></div>
 
-    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
-    <script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
     <script>
 
       const escapeValue = (str) => {
@@ -30,7 +30,8 @@
       let globalId = undefined;
 
       const approxQuery = "China denies refusing Myanmar";
-      fetch('http://128.141.118.30:8983/solr/deep/select?fl=*,score', {
+      const url = 'http://128.141.118.30:8983/solr/deep/select'
+      fetch(url + '?fl=*,score', {
         method: 'POST',
         headers: { "Content-Type": "application/json; charset=utf-8" },
         body: JSON.stringify({ query: approxQuery, limit: 1 }),
@@ -49,7 +50,7 @@
         })
         .then(query => {
           console.warn('Fetching similars');
-          return fetch('http://localhost:8983/solr/deep/select?fl=id,title,publisher,published_date,id,score', {
+          return fetch(url + '?fl=id,title,publisher,published_date,id,score', {
             method: 'POST',
             headers: { "Content-Type": "application/json; charset=utf-8" },
             body: JSON.stringify({ query, limit: 300 }),
@@ -68,7 +69,7 @@
               ...datum,
               score: 100 * datum.score / self.score,
               size: 2,
-              published_date: new Date(datum.published_date).getTime() / 1000,
+              published_date: new Date(datum.published_date).getTime(),
               publisher: datum.publisher || 'N/A',
             }))
 
@@ -77,9 +78,6 @@
           const outerHeight = 680;
           const width = outerWidth - margin.left - margin.right;
           const height = outerHeight - margin.top - margin.bottom;
-
-          var x = d3.scale.linear().range([0, width]).nice();
-          var y = d3.scale.linear().range([height, 0]).nice();
 
           const colorCat = "publisher";
           const rCat = 'size';
@@ -96,21 +94,16 @@
           let yMax = maxY+10;
           let yMin = minY;
 
-          x.domain([xMin, xMax]);
-          y.domain([yMin, yMax]);
+          var x = d3.scaleTime().domain([xMin, xMax])
+            .range([0, width]).nice();
 
-          const xAxis = d3.svg.axis()
-            .scale(x)
-            .orient("bottom")
-            .tickSize(-height)
-            .tickFormat(d3.format("d"));
+          var y = d3.scaleLinear().domain([yMin, yMax])
+            .range([height, 0]).nice();
 
-          const yAxis = d3.svg.axis()
-            .scale(y)
-            .orient("left")
-            .tickSize(-width);
+          var xAxis = d3.axisBottom(x);
+          var yAxis = d3.axisLeft(y);
 
-          var color = d3.scale.category20();
+          var color = d3.scaleOrdinal(d3.schemeCategory10);
 
           var tip = d3.tip()
             .attr("class", "d3-tip")
@@ -119,11 +112,16 @@
               return `Title: ${d.title}<br>Date: ${d[xCat]}<br>Similarity Percent: ${d[yCat]}<br>Publisher: ${d[colorCat]}`;
             });
 
-          var zoomBeh = d3.behavior.zoom()
-            .x(x)
-            .y(y)
-            .scaleExtent([0, 500])
-            .on("zoom", zoom);
+          var zoomBeh = d3.zoom().on("zoom", function () {
+              var new_xScale = d3.event.transform.rescaleX(x)
+              var new_yScale = d3.event.transform.rescaleY(y)
+
+              // update axes
+              svg.select(".x.axis").call(xAxis.scale(new_xScale));
+              svg.select(".y.axis").call(yAxis.scale(new_yScale));
+
+              markers.attr("transform", d3.event.transform);
+            });
 
           var svg = d3.select("#scatter")
             .append("svg")
@@ -159,7 +157,7 @@
             .attr("y", -margin.left)
             .attr("dy", ".71em")
             .style("text-anchor", "end")
-            .text("Similarity Percent");
+            .text("Similarity (%)");
 
           var objects = svg.append("svg")
             .classed("objects", true)
@@ -181,12 +179,13 @@
             .attr("x2", 0)
             .attr("y2", height);
 
-          objects.selectAll(".dot")
+          var markers = objects.selectAll(".dot")
             .data(data)
             .enter().append("circle")
             .classed("dot", true)
             .attr("r", function (d) { return 6 * Math.sqrt(d[rCat] / Math.PI); })
-            .attr("transform", transform)
+            .attr("cx", function (d) { return x(d[xCat]); })
+            .attr("cy", function (d) { return y(d[yCat]); })
             .style("fill", function(d) { return color(d[colorCat]); })
             .on("mouseover", tip.show)
             .on("mouseout", tip.hide);
@@ -207,33 +206,6 @@
             .attr("dy", ".35em")
             .text(function(d) { return d; });
 
-          d3.select("input").on("click", change);
-
-          function change() {
-            xCat = "Carbs";
-            xMax = d3.max(data, function(d) { return d[xCat]; });
-            xMin = d3.min(data, function(d) { return d[xCat]; });
-
-            zoomBeh.x(x.domain([xMin, xMax])).y(y.domain([yMin, yMax]));
-
-            var svg = d3.select("#scatter").transition();
-
-            svg.select(".x.axis").duration(750).call(xAxis).select(".label").text(xCat);
-
-            objects.selectAll(".dot").transition().duration(1000).attr("transform", transform);
-          }
-
-          function zoom() {
-            svg.select(".x.axis").call(xAxis);
-            svg.select(".y.axis").call(yAxis);
-
-            svg.selectAll(".dot")
-              .attr("transform", transform);
-          }
-
-          function transform(d) {
-            return "translate(" + x(d[xCat]) + "," + y(d[yCat]) + ")";
-          }
         })
         .catch(res => console.warn(res));
     </script>
