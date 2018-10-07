@@ -22,7 +22,7 @@
       // TODO: add normal
       const query = "The negative impacts of the El Nino induced drought, the worst in 35 years,\nwhich has caused a humanitarian crisis affecting 39 million people or 13% of\nSADC population, continues to intensify. Several factors including depleted\nfood reserves, rising food prices, lower commodity prices, slowing economic\ngrowth among other key factors, are exacerbating the situation. Staple food\nprices are rising due to the generally poor crop production over the past two\nyears. The Regional cereal deficit currently stands at close to 7.4 metric\ntonnes and is 11% below the five year average dropping from 29 million tonnes\nin 2015 to 26 million tonnes in 2016 (figures exclude Mauritius and\nSeychelles). The majority of the population is now entirely dependent on the\nmarkets for food.\n\n **Highlights**\n\n  * The negative impacts of the El Nino induced drought that has caused a";
 
-      const url = 'http://128.141.118.229:8983/solr/deep/select?fl=*,score';
+      const url = 'http://128.141.118.30:8983/solr/deep/select?fl=*,score';
       const body = {
         query,
         limit: 1000,
@@ -60,7 +60,7 @@
           var xCat = "published_date",
             yCat = "score",
             colorCat = "publisher",
-            rCat = 'title';
+            rCat = 'size';
 
           const maxX = Math.max(...data.map(datum => datum[xCat]));
           const minX = Math.min(...data.map(datum => datum[xCat]));
@@ -93,7 +93,7 @@
             .attr("class", "d3-tip")
             .offset([-10, 0])
             .html(function(d) {
-              return "Days ago" + ": " + d[xCat] + "<br>" + "Similarity" + ": " + d[yCat] +"%" +"<br>" + "Organization" + ": " + d[colorCat] +"<br>" + "Title" + ": " + d[rCat] +"%";
+	      return `Date: ${d[xCat]}<br>Similarity: ${d[yCat]}<br>Publisher: ${d[colorCat]}<br>Title: ${d.title}`;
             });
 
           var zoomBeh = d3.behavior.zoom()
