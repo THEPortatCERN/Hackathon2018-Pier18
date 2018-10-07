@@ -3,67 +3,96 @@
     <meta charset="utf-8">
     <title>Visualization</title>
     <link rel="stylesheet" href="scatter.css" charset="utf-8">
-    <!--<script src="http://d3js.org/d3.v4.min.js" charset="utf-8"></script>-->
     <script src="https://d3js.org/d3.v5.min.js" charset="utf-8"></script>
-    <!-- <script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script> -->
     <script src="d3-tip/d3-tip.js" charset="utf-8"></script>
   </head>
   <script type="text/javascript">
 
   </script>
   <body>
+    <h2 id="document-name"></h2>
+    <div id="publisher"></div>
+    <div id="published-date"></div>
     <div id="scatter"></div>
 
     <script>
 
-      // TODO: First list all the documents in the database
-      // TODO: Select one of them to get the duplication analysis
-      // TODO: Add support for more parameters in solr
-      // TODO: normalization
-      // TODO: zoom
-      // TODO: show human readable date
-      // TODO: add normal
-      const query = "The negative impacts of the El Nino induced drought, the worst in 35 years,\nwhich has caused a humanitarian crisis affecting 39 million people or 13% of\nSADC population, continues to intensify. Several factors including depleted\nfood reserves, rising food prices, lower commodity prices, slowing economic\ngrowth among other key factors, are exacerbating the situation. Staple food\nprices are rising due to the generally poor crop production over the past two\nyears. The Regional cereal deficit currently stands at close to 7.4 metric\ntonnes and is 11% below the five year average dropping from 29 million tonnes\nin 2015 to 26 million tonnes in 2016 (figures exclude Mauritius and\nSeychelles). The majority of the population is now entirely dependent on the\nmarkets for food.\n\n **Highlights**\n\n  * The negative impacts of the El Nino induced drought that has caused a";
+      const escapeValue = (str) => {
+        // FIXME: what to escape?
+        const escapees = ['\\', '+', '-', '&', '|', '!', '(', ')', '{', '}', '[', ']', '^', '~', '*', '?', ':', '"', ';', ' '];
+        let finalString = str;
+        escapees.forEach((escapee) => {
+          finalString = finalString.split(escapee).join('\\' + escapee);
+        })
+        return finalString;
+      }
 
-      //const url = 'file:///home/ben/projects/DEEPER/deep-redundancy/visualization/output.json';
-      const url = 'http://128.141.118.30:8983/solr/deep/select?fl=title,publisher,published_date,id,score';
+      let globalId = undefined;
 
-      fetch(url, {
+      const approxQuery = "China denies refusing Myanmar";
+      const url = 'http://128.141.118.30:8983/solr/deep/select'
+      fetch(url + '?fl=*,score', {
         method: 'POST',
         headers: { "Content-Type": "application/json; charset=utf-8" },
-        body: JSON.stringify({ query, limit: 300 }),
+        body: JSON.stringify({ query: approxQuery, limit: 1 }),
       })
         .then(res => res.json())
+        .then((res) => {
+            const topResult = res.response.docs[0];
+            globalId = topResult.id;
+
+            document.getElementById('document-name').innerHTML = `Document: ${topResult.title}`;
+            document.getElementById('publisher').innerHTML = `Publisher: ${topResult.publisher}`;
+            document.getElementById('published-date').innerHTML = `Date: ${topResult.published_date}`;
+
+            console.warn('Got document with id', globalId);
+            return escapeValue(topResult.text);
+        })
+        .then(query => {
+          console.warn('Fetching similars');
+          return fetch(url + '?fl=id,title,publisher,published_date,id,score', {
+            method: 'POST',
+            headers: { "Content-Type": "application/json; charset=utf-8" },
+            body: JSON.stringify({ query, limit: 300 }),
+          })
+        })
+        .then(res => res.json())
         .then((json) => {
-          const data = json.response.docs.filter(datum => datum['published_date'] !== 'None')
+          const self = json.response.docs.find(doc => doc.id === globalId);
+
+          const data = json.response.docs
+            // remove all data without published_date
+            .filter(datum => datum['id'] !== globalId)
+            .filter(datum => datum['published_date'] !== 'None' && datum['published_date'])
+            // transform data to our needs
             .map(datum => ({
               ...datum,
-              size: 3,
-              published_date: new Date(datum.published_date),
+              score: 100 * datum.score / self.score,
+              size: 2,
+              published_date: new Date(datum.published_date).getTime(),
               publisher: datum.publisher || 'N/A',
             }))
 
-          var margin = { top: 50, right: 300, bottom: 50, left: 50 },
-            outerWidth = 1420,
-            outerHeight = 680,
-            width = outerWidth - margin.left - margin.right,
-            height = outerHeight - margin.top - margin.bottom;
+          const margin = { top: 50, right: 300, bottom: 50, left: 50 };
+          const outerWidth = 1420;
+          const outerHeight = 680;
+          const width = outerWidth - margin.left - margin.right;
+          const height = outerHeight - margin.top - margin.bottom;
 
-          var xCat = "published_date",
-            yCat = "score",
-            colorCat = "publisher",
-            rCat = 'size';
+          const colorCat = "publisher";
+          const rCat = 'size';
+          const xCat = "published_date";
+          const yCat = "score";
 
-          const maxX = Math.max(...data.map(datum => datum[xCat]));
-          const minX = Math.min(...data.map(datum => datum[xCat]));
+          let maxX = Math.max(...data.map(datum => datum[xCat]));
+          let minX = Math.min(...data.map(datum => datum[xCat]));
+          let maxY = Math.max(...data.map(datum => datum[yCat]));
+          let minY = Math.min(...data.map(datum => datum[yCat]));
 
-          const maxY = Math.max(...data.map(datum => datum[yCat]));
-          const minY = Math.min(...data.map(datum => datum[yCat]));
-
-          var xMax = maxX+1,
-            xMin = minX,
-            yMax = maxY+10,
-            yMin = minY
+          let xMax = maxX+1;
+          let xMin = minX;
+          let yMax = maxY+10;
+          let yMin = minY;
 
           var x = d3.scaleTime().domain([xMin, xMax])
             .range([0, width]).nice();
@@ -80,7 +109,7 @@
             .attr("class", "d3-tip")
             .offset([-10, 0])
             .html(function(d) {
-              return "Days ago" + ": " + d[xCat] + "<br>" + "Similarity" + ": " + d[yCat] +"%" +"<br>" + "Organization" + ": " + d[colorCat] +"<br>" + "Confidence" + ": " + d[rCat] +"%";
+              return `Title: ${d.title}<br>Date: ${d[xCat]}<br>Similarity Percent: ${d[yCat]}<br>Publisher: ${d[colorCat]}`;
             });
 
           var zoomBeh = d3.zoom().on("zoom", function () {
@@ -113,11 +142,11 @@
             .attr("transform", "translate(0," + height + ")")
             .call(xAxis)
             .append("text")
-            //.classed("label", true)
-            //.attr("x", width)
-            //.attr("y", margin.bottom - 10)
-            // .style("text-anchor", "end")
-            .text("Time");
+            .classed("label", true)
+            .attr("x", width)
+            .attr("y", margin.bottom - 10)
+            .style("text-anchor", "end")
+            .text("Date");
 
           svg.append("g")
             .classed("y axis", true)
@@ -128,7 +157,7 @@
             .attr("y", -margin.left)
             .attr("dy", ".71em")
             .style("text-anchor", "end")
-            .text("Similarity");
+            .text("Similarity (%)");
 
           var objects = svg.append("svg")
             .classed("objects", true)
