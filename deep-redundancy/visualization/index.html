@@ -4,9 +4,9 @@
     <title>Visualization</title>
     <link rel="stylesheet" href="scatter.css" charset="utf-8">
     <!--<script src="http://d3js.org/d3.v4.min.js" charset="utf-8"></script>-->
-    <script src="https://d3js.org/d3.v5.min.js" charset="utf-8">></script>>
+    <script src="https://d3js.org/d3.v5.min.js" charset="utf-8"></script>
     <!-- <script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script> -->
-    <script src="d3-tip/d3-tip.js" charset="utf-8">></script>>
+    <script src="d3-tip/d3-tip.js" charset="utf-8"></script>
   </head>
   <script type="text/javascript">
 
@@ -26,19 +26,12 @@
       const query = "The negative impacts of the El Nino induced drought, the worst in 35 years,\nwhich has caused a humanitarian crisis affecting 39 million people or 13% of\nSADC population, continues to intensify. Several factors including depleted\nfood reserves, rising food prices, lower commodity prices, slowing economic\ngrowth among other key factors, are exacerbating the situation. Staple food\nprices are rising due to the generally poor crop production over the past two\nyears. The Regional cereal deficit currently stands at close to 7.4 metric\ntonnes and is 11% below the five year average dropping from 29 million tonnes\nin 2015 to 26 million tonnes in 2016 (figures exclude Mauritius and\nSeychelles). The majority of the population is now entirely dependent on the\nmarkets for food.\n\n **Highlights**\n\n  * The negative impacts of the El Nino induced drought that has caused a";
 
       //const url = 'file:///home/ben/projects/DEEPER/deep-redundancy/visualization/output.json';
-      const url = 'http://128.141.118.30:8983/solr/deep/select?fl=*,score';
-      const body = {
-        query,
-        limit: 1000,
-      };
+      const url = 'http://128.141.118.30:8983/solr/deep/select?fl=title,publisher,published_date,id,score';
 
       fetch(url, {
-        //cache: 'force-cache',
         method: 'POST',
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-        },
-        body: JSON.stringify(body),
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        body: JSON.stringify({ query, limit: 300 }),
       })
         .then(res => res.json())
         .then((json) => {
@@ -72,25 +65,16 @@
             yMax = maxY+10,
             yMin = minY
 
-          var x = d3.scaleTime()// .domain([xMin, xMax])
-            .range([0, width]).tickFormat();
+          var x = d3.scaleTime().domain([xMin, xMax])
+            .range([0, width]).nice();
 
-          var y = d3.scaleLinear()// .domain([yMin, yMax])
+          var y = d3.scaleLinear().domain([yMin, yMax])
             .range([height, 0]).nice();
 
           var xAxis = d3.axisBottom(x);
-            // .scale(x)
-            // .orient("bottom")
-            // .tickSize(-height)
-            // .tickFormat(d3.format("d"));
-
           var yAxis = d3.axisLeft(y);
-          //var yAxis = d3.svg.axis()
-          //  .scale(y)
-          //  .orient("left")
-          //  .tickSize(-width);
 
-          var color = d3.schemeCategory10;
+          var color = d3.scaleOrdinal(d3.schemeCategory10);
 
           var tip = d3.tip()
             .attr("class", "d3-tip")
@@ -100,14 +84,15 @@
             });
 
           var zoomBeh = d3.zoom().on("zoom", function () {
-                svg.attr("transform", d3.event.transform)
-             });
-            // d3.behavior.zoom()
-            // .x(x)
-            // .y(y)
-            // .scaleExtent([0, 500])
-            // .on("zoom", zoom);
+              var new_xScale = d3.event.transform.rescaleX(x)
+              var new_yScale = d3.event.transform.rescaleY(y)
 
+              // update axes
+              svg.select(".x.axis").call(xAxis.scale(new_xScale));
+              svg.select(".y.axis").call(yAxis.scale(new_yScale));
+
+              markers.attr("transform", d3.event.transform);
+            });
 
           var svg = d3.select("#scatter")
             .append("svg")
@@ -115,7 +100,7 @@
             .attr("height", outerHeight)
             .append("g")
             .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
-            ;//.call(zoomBeh);
+            .call(zoomBeh);
 
           svg.call(tip);
 
@@ -128,10 +113,10 @@
             .attr("transform", "translate(0," + height + ")")
             .call(xAxis)
             .append("text")
-            .classed("label", true)
-            .attr("x", width)
-            .attr("y", margin.bottom - 10)
-            .style("text-anchor", "end")
+            //.classed("label", true)
+            //.attr("x", width)
+            //.attr("y", margin.bottom - 10)
+            // .style("text-anchor", "end")
             .text("Time");
 
           svg.append("g")
@@ -165,18 +150,19 @@
             .attr("x2", 0)
             .attr("y2", height);
 
-          objects.selectAll(".dot")
+          var markers = objects.selectAll(".dot")
             .data(data)
             .enter().append("circle")
             .classed("dot", true)
             .attr("r", function (d) { return 6 * Math.sqrt(d[rCat] / Math.PI); })
-            .attr("transform", transform)
+            .attr("cx", function (d) { return x(d[xCat]); })
+            .attr("cy", function (d) { return y(d[yCat]); })
             .style("fill", function(d) { return color(d[colorCat]); })
             .on("mouseover", tip.show)
             .on("mouseout", tip.hide);
 
           var legend = svg.selectAll(".legend")
-            //.data(color.domain())
+            .data(color.domain())
             .enter().append("g")
             .classed("legend", true)
             .attr("transform", function(d, i) { return "translate(0," + i * 20 + ")"; });
@@ -191,33 +177,6 @@
             .attr("dy", ".35em")
             .text(function(d) { return d; });
 
-          d3.select("input").on("click", change);
-
-          function change() {
-            xCat = "Carbs";
-            xMax = d3.max(data, function(d) { return d[xCat]; });
-            xMin = d3.min(data, function(d) { return d[xCat]; });
-
-            //zoomBeh.x(x.domain([xMin, xMax])).y(y.domain([yMin, yMax]));
-
-            var svg = d3.select("#scatter").transition();
-
-            svg.select(".x.axis").duration(750).call(xAxis).select(".label").text(xCat);
-
-            objects.selectAll(".dot").transition().duration(1000).attr("transform", transform);
-          }
-
-          function zoom() {
-            svg.select(".x.axis").call(xAxis);
-            svg.select(".y.axis").call(yAxis);
-
-            svg.selectAll(".dot")
-              .attr("transform", transform);
-          }
-
-          function transform(d) {
-            return "translate(" + x(d[xCat]) + "," + y(d[yCat]) + ")";
-          }
         })
         .catch(res => console.warn(res));
     </script>
