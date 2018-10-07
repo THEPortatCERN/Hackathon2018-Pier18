@@ -84,24 +84,15 @@
           const xCat = "published_date";
           const yCat = "score";
 
-          let maxX = Math.max(...data.map(datum => datum[xCat]));
-          let minX = Math.min(...data.map(datum => datum[xCat]));
-          let maxY = Math.max(...data.map(datum => datum[yCat]));
-          let minY = Math.min(...data.map(datum => datum[yCat]));
-
-          let xMax = maxX+1;
-          let xMin = minX;
-          let yMax = maxY+10;
-          let yMin = minY;
-
-          var x = d3.scaleTime().domain([xMin, xMax])
+          var x = d3.scaleTime().domain(d3.extent(data, datum => datum[xCat]))
             .range([0, width]).nice();
 
-          var y = d3.scaleLinear().domain([yMin, yMax])
+          // var y = d3.scaleLinear().domain([0, d3.max(data, datum => datum[yCat])])
+          var y = d3.scaleLinear().domain(d3.extent(data, datum => datum[yCat]))
             .range([height, 0]).nice();
 
-          var xAxis = d3.axisBottom(x);
-          var yAxis = d3.axisLeft(y);
+          var xAxis = d3.axisBottom(x).ticks(10);
+          var yAxis = d3.axisLeft(y).ticks(10);
 
           var color = d3.scaleOrdinal(d3.schemeCategory10);
 
@@ -133,6 +124,24 @@
 
           svg.call(tip);
 
+
+//          // add the X gridlines
+//          svg.append("g")     
+//              .attr("class", "grid")
+//              .attr("transform", "translate(0," + height + ")")
+//              .call(d3.axisBottom(y).ticks(10)
+//                          .tickSize(-height)
+//                          .tickFormat("")
+//                      )
+//
+//          // add the Y gridlines
+//          svg.append("g")     
+//              .attr("class", "grid")
+//              .call(d3.axisLeft(y).ticks(10)
+//                          .tickSize(-width)
+//                          .tickFormat("")
+//                      )
+
           svg.append("rect")
             .attr("width", width)
             .attr("height", height);
@@ -140,24 +149,24 @@
           svg.append("g")
             .classed("x axis", true)
             .attr("transform", "translate(0," + height + ")")
-            .call(xAxis)
-            .append("text")
-            .classed("label", true)
-            .attr("x", width)
-            .attr("y", margin.bottom - 10)
-            .style("text-anchor", "end")
-            .text("Date");
+            .call(xAxis);
+						svg.append("text")             
+							.attr("dy", "1em")
+							.attr("y", height+margin.bottom/2)
+							.attr("x", width / 2)
+							.style("text-anchor", "middle")
+							.text("Publication Date");
 
           svg.append("g")
             .classed("y axis", true)
-            .call(yAxis)
-            .append("text")
-            .classed("label", true)
-            .attr("transform", "rotate(-90)")
-            .attr("y", -margin.left)
-            .attr("dy", ".71em")
-            .style("text-anchor", "end")
-            .text("Similarity (%)");
+            .call(yAxis);
+					svg.append("text")
+							.attr("transform", "rotate(-90)")
+							.attr("y", 0 - margin.left)
+							.attr("x",0 - (height / 2))
+							.attr("dy", "1em")
+							.style("text-anchor", "middle")
+							.text("Similarity %");
 
           var objects = svg.append("svg")
             .classed("objects", true)
