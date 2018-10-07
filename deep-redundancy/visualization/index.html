@@ -22,7 +22,7 @@
       // IN PROGRESS: show human readable date
       const query = "The negative impacts of the El Nino induced drought";
 
-      fetch('http://localhost:8983/solr/deep/select?fl=title,publisher,published_date,id,score', {
+      fetch('http://128.141.118.30:8983/solr/deep/select?fl=title,publisher,published_date,id,score', {
         method: 'POST',
         headers: { "Content-Type": "application/json; charset=utf-8" },
         body: JSON.stringify({ query, limit: 300 }),
@@ -85,7 +85,7 @@
             .attr("class", "d3-tip")
             .offset([-10, 0])
             .html(function(d) {
-	      return `Date: ${d[xCat]}<br>Similarity: ${d[yCat]}<br>Publisher: ${d[colorCat]}<br>Title: ${d.title}`;
+	      return `Title: ${d.title}<br>Date: ${d[xCat]}<br>Similarity: ${d[yCat]}<br>Publisher: ${d[colorCat]}`;
             });
 
           var zoomBeh = d3.behavior.zoom()
