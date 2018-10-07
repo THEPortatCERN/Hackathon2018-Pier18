@@ -22,7 +22,7 @@
       // IN PROGRESS: show human readable date
       const query = "The negative impacts of the El Nino induced drought";
 
-      fetch('http://localhost:8983/solr/deep/select?fl=*,score', {
+      fetch('http://localhost:8983/solr/deep/select?fl=title,publisher,published_date,id,score', {
         method: 'POST',
         headers: { "Content-Type": "application/json; charset=utf-8" },
         body: JSON.stringify({ query, limit: 300 }),
