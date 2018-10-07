@@ -8,7 +8,9 @@
 
   </script>
   <body>
-    <div id="document-name"></div>
+    <h2 id="document-name"></h2>
+    <div id="publisher"></div>
+    <div id="published-date"></div>
     <div id="scatter"></div>
 
     <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
@@ -28,7 +30,7 @@
       let globalId = undefined;
 
       const approxQuery = "China denies refusing Myanmar";
-      fetch('http://128.141.118.30:8983/solr/deep/select?fl=text,score,id', {
+      fetch('http://128.141.118.30:8983/solr/deep/select?fl=*,score', {
         method: 'POST',
         headers: { "Content-Type": "application/json; charset=utf-8" },
         body: JSON.stringify({ query: approxQuery, limit: 1 }),
@@ -37,6 +39,11 @@
         .then((res) => {
             const topResult = res.response.docs[0];
             globalId = topResult.id;
+
+            document.getElementById('document-name').innerHTML = `Document: ${topResult.title}`;
+            document.getElementById('publisher').innerHTML = `Publisher: ${topResult.publisher}`;
+            document.getElementById('published-date').innerHTML = `Date: ${topResult.published_date}`;
+
             console.warn('Got document with id', globalId);
             return escapeValue(topResult.text);
         })
@@ -60,7 +67,7 @@
             .map(datum => ({
               ...datum,
               score: 100 * datum.score / self.score,
-              size: 3,
+              size: 2,
               published_date: new Date(datum.published_date).getTime() / 1000,
               publisher: datum.publisher || 'N/A',
             }))
