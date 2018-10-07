@@ -8,34 +8,63 @@
 
   </script>
   <body>
+    <div id="document-name"></div>
     <div id="scatter"></div>
 
     <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
     <script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
     <script>
 
+        const escapeValue = (str) => {
+          // FIXME: what to escape?
+          const escapees = ['\\', '+', '-', '&', '|', '!', '(', ')', '{', '}', '[', ']', '^', '~', '*', '?', ':', '"', ';', ' '];
+          let finalString = str;
+          escapees.forEach((escapee) => {
+            finalString = finalString.split(escapee).join('\\' + escapee);
+          })
+          return finalString;
+        }
+
       // TODO: First list all the documents in the database
       // TODO: Select one of them to get the duplication analysis
       // TODO: Add support for large number of query words in solr
       // TODO: normalization of data (remove self) - need to get self from the database
-      // DONE: zoom
-      // IN PROGRESS: show human readable date
-      const query = "The negative impacts of the El Nino induced drought";
 
-      fetch('http://128.141.118.30:8983/solr/deep/select?fl=title,publisher,published_date,id,score', {
+      let globalId = undefined;
+
+      const approxQuery = "China denies refusing Myanmar";
+      fetch('http://128.141.118.30:8983/solr/deep/select?fl=text,score,id', {
         method: 'POST',
         headers: { "Content-Type": "application/json; charset=utf-8" },
-        body: JSON.stringify({ query, limit: 300 }),
+        body: JSON.stringify({ query: approxQuery, limit: 1 }),
       })
         .then(res => res.json())
+        .then((res) => {
+            const topResult = res.response.docs[0];
+            globalId = topResult.id;
+            console.warn('Got document with id', globalId);
+            return escapeValue(topResult.text);
+        })
+        .then(query => {
+          console.warn('Fetching similars');
+          return fetch('http://localhost:8983/solr/deep/select?fl=id,title,publisher,published_date,id,score', {
+            method: 'POST',
+            headers: { "Content-Type": "application/json; charset=utf-8" },
+            body: JSON.stringify({ query, limit: 300 }),
+          })
+        })
+        .then(res => res.json())
         .then((json) => {
+          const self = json.response.docs.find(doc => doc.id === globalId);
 
           const data = json.response.docs
             // remove all data without published_date
+            .filter(datum => datum['id'] !== globalId)
             .filter(datum => datum['published_date'] !== 'None' && datum['published_date'])
             // transform data to our needs
             .map(datum => ({
               ...datum,
+              score: 100 * datum.score / self.score,
               size: 3,
               published_date: new Date(datum.published_date).getTime() / 1000,
               publisher: datum.publisher || 'N/A',
@@ -85,7 +114,7 @@
             .attr("class", "d3-tip")
             .offset([-10, 0])
             .html(function(d) {
-	      return `Title: ${d.title}<br>Date: ${d[xCat]}<br>Similarity: ${d[yCat]}<br>Publisher: ${d[colorCat]}`;
+              return `Title: ${d.title}<br>Date: ${d[xCat]}<br>Similarity Percent: ${d[yCat]}<br>Publisher: ${d[colorCat]}`;
             });
 
           var zoomBeh = d3.behavior.zoom()
@@ -117,7 +146,7 @@
             .attr("x", width)
             .attr("y", margin.bottom - 10)
             .style("text-anchor", "end")
-            .text("Time");
+            .text("Date");
 
           svg.append("g")
             .classed("y axis", true)
@@ -128,7 +157,7 @@
             .attr("y", -margin.left)
             .attr("dy", ".71em")
             .style("text-anchor", "end")
-            .text("Similarity");
+            .text("Similarity Percent");
 
           var objects = svg.append("svg")
             .classed("objects", true)
