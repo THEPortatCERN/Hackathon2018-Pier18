@@ -15,20 +15,15 @@
     <script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
     <script>
 
-        const escapeValue = (str) => {
-          // FIXME: what to escape?
-          const escapees = ['\\', '+', '-', '&', '|', '!', '(', ')', '{', '}', '[', ']', '^', '~', '*', '?', ':', '"', ';', ' '];
-          let finalString = str;
-          escapees.forEach((escapee) => {
-            finalString = finalString.split(escapee).join('\\' + escapee);
-          })
-          return finalString;
-        }
-
-      // TODO: First list all the documents in the database
-      // TODO: Select one of them to get the duplication analysis
-      // TODO: Add support for large number of query words in solr
-      // TODO: normalization of data (remove self) - need to get self from the database
+      const escapeValue = (str) => {
+        // FIXME: what to escape?
+        const escapees = ['\\', '+', '-', '&', '|', '!', '(', ')', '{', '}', '[', ']', '^', '~', '*', '?', ':', '"', ';', ' '];
+        let finalString = str;
+        escapees.forEach((escapee) => {
+          finalString = finalString.split(escapee).join('\\' + escapee);
+        })
+        return finalString;
+      }
 
       let globalId = undefined;
 
